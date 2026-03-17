@@ -8,13 +8,14 @@ import {
   Paper,
   Tabs,
   Tab,
-  Input,
   Avatar,
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Papa from "papaparse";
 import JSZip from "jszip";
 import RouterIcon from "@mui/icons-material/Router";
+import InputAdornment from '@mui/material/InputAdornment';
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 
 const theme = createTheme({
   palette: {
@@ -24,9 +25,10 @@ const theme = createTheme({
   },
 });
 
+
 const template = `/interface vlan
-add interface=sfp-sfpplus1 name=V20-WIFI-GRATIS vlan-id=20
-add interface=sfp-sfpplus1 name=V21-WIFI-KAI vlan-id=21
+add interface={{ WAN }} name=V20-WIFI-GRATIS vlan-id=20
+add interface={{ WAN }} name=V21-WIFI-KAI vlan-id=21
 add interface=sfp-sfpplus1 name=V37-MGT vlan-id=37
 add interface=sfp-sfpplus1 name=V2132-INET vlan-id=2132
 
@@ -221,7 +223,9 @@ function App() {
     identity: "",
     ipAddress: "",
   });
+  const [version, setVersion] = useState("mpls");
   const [csvFile, setCsvFile] = useState(null);
+  const [fileName, setFileName] = useState("");
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -247,9 +251,18 @@ function App() {
   }
 
   let output = template;
+  const wan = version === "mpls" ? "sfp-sfpplus1" : "ether1";
+  output = output.replace(/\{\{ WAN \}\}/g, wan);
+  
   output = output.replace(/\{\{ Hostname \}\}/g, formData.hostname);
   output = output.replace(/\{\{ Identity \}\}/g, formData.identity);
-  output = output.replace(/\{\{ IP Address \}\}/g, formData.ipAddress);
+
+  let ip = formData.ipAddress.trim();
+  if (!ip.includes("/")) {
+    ip = ip + "/22";
+  }
+
+  output = output.replace(/\{\{ IP Address \}\}/g, ip);
 
   // Create plain text blob (NOT zip)
   const blob = new Blob([output], { type: "text/plain" });
@@ -282,7 +295,13 @@ function App() {
             let output = template;
             output = output.replace(/\{\{ Hostname \}\}/g, row.Hostname);
             output = output.replace(/\{\{ Identity \}\}/g, row.Identity);
-            output = output.replace(/\{\{ IP Address \}\}/g, row["IP Address"]);
+
+            let ip = row["IP Address"].trim();
+            if (!ip.includes("/")) {
+              ip = ip + "/22";
+            }
+
+            output = output.replace(/\{\{ IP Address \}\}/g, ip);
             outputFolder.file(`${row.Identity}.rsc`, output);
           }
         });
@@ -302,39 +321,94 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Container maxWidth="md">
+      <Box
+        sx={{
+          minHeight: "100vh",
+          background: `
+            radial-gradient(circle at 20% 30%, rgba(255,255,255,0.08), transparent 40%),
+            radial-gradient(circle at 80% 70%, rgba(255,255,255,0.05), transparent 40%),
+            linear-gradient(135deg, #0f2027, #203a43, #2c5364)
+          `,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          overflow: "hidden"
+        }}
+      >
+      <Container maxWidth="sm">
         <Box
           sx={{
-            mt: 8,
-            mb: 4,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
+            textAlign: "center",
+            mb: 4
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-            <Avatar sx={{ bgcolor: "primary.main", mr: 2 }}>
+
+          {/* Icon + Title Row */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              mb: 0.5
+            }}
+          >
+            <Avatar
+              sx={{
+                bgcolor: "primary.main",
+                width: 48,
+                height: 48
+              }}
+            >
               <RouterIcon />
             </Avatar>
-            <Box>
-              <Typography
-                variant="h4"
-                component="h1"
-                gutterBottom
-                sx={{ margin: 0 }}
-              >
-                RSC Generator
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                RouterOS Configuration Tool
-              </Typography>
-            </Box>
+
+            <Typography
+              variant="h4"
+              fontWeight="600"
+              sx={{
+                color: "#ffffff",
+                letterSpacing: 0.6
+              }}
+            >
+              RSC Generator
+            </Typography>
           </Box>
-          <Typography variant="body1" align="center" color="textSecondary">
+
+          <Typography
+            variant="body2"
+            sx={{
+              color: "rgba(255,255,255,0.8)",
+              mb: 1.5
+            }}
+          >
+            RouterOS Configuration Tool
+          </Typography>
+
+          <Typography
+            variant="body2"
+            sx={{
+              color: "rgba(255,255,255,0.7)",
+              maxWidth: "420px",
+              lineHeight: 1.6
+            }}
+          >
             Generate RouterOS configuration files for your network devices.
           </Typography>
-        </Box>
-        <Paper elevation={3} sx={{ p: 4 }}>
+
+        </Box>  
+        <Paper
+          elevation={0}
+          sx={{
+            p: 4,
+            borderRadius: 4,
+            backdropFilter: "blur(10px)",
+            backgroundColor: "rgba(255,255,255,0.95)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+          }}
+          >
           <Tabs
             value={tabValue}
             onChange={handleTabChange}
@@ -345,6 +419,18 @@ function App() {
           </Tabs>
           {tabValue === 0 && (
             <form onSubmit={handleSubmit}>
+              <TextField
+                select
+                label="Mode"
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                fullWidth
+                margin="normal"
+                SelectProps={{ native: true }}
+              >
+                <option value="mpls">MPLS</option>
+                <option value="nonmpls">NON-MPLS</option>
+              </TextField>
               <TextField
                 fullWidth
                 label="Hostname"
@@ -371,6 +457,9 @@ function App() {
                 onChange={handleChange}
                 margin="normal"
                 required
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">/22</InputAdornment>,
+                }}
               />
               <Box sx={{ mt: 3 }}>
                 <Button
@@ -386,30 +475,54 @@ function App() {
           )}
           {tabValue === 1 && (
             <form onSubmit={handleBulkSubmit}>
-              <Input
-                type="file"
-                accept=".csv"
-                onChange={handleFileChange}
-                fullWidth
-                sx={{ mt: 2 }}
-              />
-              <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                Upload a CSV file with columns: Hostname, Identity, IP Address
+
+              <Box sx={{ mt: 2 }}>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  startIcon={<UploadFileIcon />}
+                  fullWidth
+                >
+                  Upload CSV File
+                  <input
+                    type="file"
+                    accept=".csv"
+                    hidden
+                    onChange={(e) => {
+                      handleFileChange(e);
+                      setFileName(e.target.files[0]?.name || "");
+                    }}
+                  />
+                </Button>
+
+                {fileName && (
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Selected file: <strong>{fileName}</strong>
+                  </Typography>
+                )}
+              </Box>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Upload a CSV file with columns: <b>Hostname, Identity, IP Address</b>
               </Typography>
+
               <Box sx={{ mt: 3 }}>
                 <Button
                   type="submit"
                   variant="contained"
                   color="primary"
                   fullWidth
+                  disabled={!fileName}
                 >
                   Generate and Download ZIP
                 </Button>
               </Box>
+
             </form>
           )}
         </Paper>
       </Container>
+      </Box>
     </ThemeProvider>
   );
 }

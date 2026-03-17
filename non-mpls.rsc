@@ -9,6 +9,10 @@ add add-default-route=yes disabled=no interface=V2132-INET name=TO_INET user={{ 
 /ip hotspot profile
 add dns-name=wifi.grts hotspot-address=192.168.20.1 html-directory=WG login-by=http-chap,http-pap name=WG
 
+/interface list
+add name=MGMT
+add name=MGMT2
+
 /ip pool
 add name=pool_wifi-gratis ranges=192.168.20.2-192.168.21.254
 add name=pool_wifi-kai ranges=192.168.30.2-192.168.31.254
@@ -33,6 +37,24 @@ add disabled=no fib name=For_MGMT
 /snmp community
 add addresses=::/0 name=SSPACE-NETWORK
 
+/ip neighbor discovery-settings
+set discover-interface-list=MGMT2
+
+/interface list member
+add interface=V2132-INET list=MGMT
+add interface=V37-MGT list=MGMT2
+add interface=ether10 list=MGMT2
+add interface=ether9 list=MGMT2
+add interface=ether8 list=MGMT2
+add interface=ether7 list=MGMT2
+add interface=ether6 list=MGMT2
+add interface=V37-MGT list=MGMT
+add interface=ether10 list=MGMT
+add interface=ether9 list=MGMT
+add interface=ether8 list=MGMT
+add interface=ether7 list=MGMT
+add interface=ether6 list=MGMT
+
 /ip address
 add address={{ IP Address }}  interface=V37-MGT network=10.240.32.0
 add address=192.168.20.1/23 interface=V20-WIFI-GRATIS network=192.168.20.0
@@ -48,6 +70,18 @@ set allow-remote-requests=yes
 /ip firewall filter
 add action=passthrough chain=unused-hs-chain comment=\
     "place hotspot rules here" disabled=yes
+add action=drop chain=input comment="Drop ICMP from WIFI GRATIS to router"     in-interface=V20-WIFI-GRATIS protocol=icmp
+add action=drop chain=input comment="Drop ICMP from WIFI KAI to router"     in-interface=V21-WIFI-KAI protocol=icmp
+add action=drop chain=forward comment="Drop ICMP from WIFI GRATIS"     in-interface=V20-WIFI-GRATIS protocol=icmp
+add action=drop chain=forward comment="Drop ICMP from WIFI KAI" in-interface=    V21-WIFI-KAI protocol=icmp
+add action=drop chain=input comment=    "Drop mgmt default+custom from WIFI GRATIS to router" dst-port=    22,23,8291,8728,8729,25423,26423,25422,26422,25424,26424,25428,26428     in-interface=V20-WIFI-GRATIS protocol=tcp
+add action=drop chain=input comment=    "Drop mgmt default+custom from WIFI KAI to router" dst-port=    22,23,8291,8728,8729,25423,26423,25422,26422,25424,26424,25428,26428     in-interface=V21-WIFI-KAI protocol=tcp
+add action=drop chain=forward comment=    "Drop mgmt default+custom from WIFI GRATIS" dst-port=    22,23,8291,8728,8729,25423,26423,25422,26422,25424,26424,25428,26428     in-interface=V20-WIFI-GRATIS protocol=tcp
+add action=drop chain=forward comment=    "Drop mgmt default+custom from WIFI KAI" dst-port=    22,23,8291,8728,8729,25423,26423,25422,26422,25424,26424,25428,26428     in-interface=V21-WIFI-KAI protocol=tcp
+add action=accept chain=input connection-state=established,related
+add action=accept chain=forward connection-state=established,related
+add action=add-src-to-address-list address-list=PORT-SCANNER     address-list-timeout=1d chain=forward comment=    "Detect port scan WIFI GRATIS" in-interface=V20-WIFI-GRATIS protocol=tcp     psd=21,3s,3,1
+add action=add-src-to-address-list address-list=PORT-SCANNER     address-list-timeout=1d chain=forward comment="Detect port scan WIFI KAI"     in-interface=V21-WIFI-KAI protocol=tcp psd=21,3s,3,1
 
 /ip firewall mangle
 add action=mark-connection chain=input comment="Mangle For Management RB" \
@@ -120,6 +154,12 @@ add interval=3h name=sched-hapus-host on-event=hapus-host-dynamic policy=\
 /system script
 add dont-require-permissions=no name=hapus-host-dynamic owner=alhadis policy=\
     read,write,test source="/ip hotspot host remove [find dynamic=yes]"
+
+/tool mac-server
+set allowed-interface-list=MGMT
+
+/tool mac-server mac-winbox
+set allowed-interface-list=MGMT
 
 /user aaa
 set default-group=write use-radius=yes

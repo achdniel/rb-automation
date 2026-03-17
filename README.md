@@ -37,12 +37,14 @@ rb-automation/
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone <your-repo-url>
    cd rb-automation
    ```
 
 2. Install dependencies:
+
    ```bash
    cd rsc-generator-web
    npm install
@@ -66,11 +68,13 @@ The app will open at `http://localhost:3000`
 ## CSV Format
 
 CSV files should contain the following columns (delimiter: `;`):
+
 - `Hostname` - Device hostname
 - `Identity` - Device identity/name
 - `IP Address` - IP address configuration
 
 Example:
+
 ```
 Hostname;Identity;IP Address
 RO.ST.JAKARTA;RO-ST.JAKARTA;192.168.1.1
